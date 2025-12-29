@@ -4,7 +4,7 @@ services:
     runtime: python3
     pythonVersion: 3.12
     buildCommand: pip install -r backend/requirements.txt
-    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    startCommand: uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: SUPABASE_URL
         value: https://xfvvsbnhlybnbyatkvww.supabase.co
