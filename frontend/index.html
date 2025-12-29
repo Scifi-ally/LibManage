@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Library Management</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="/static/styles.css?v=21">
+</head>
+<body>
+    <!-- Auth Container -->
+    <div class="auth-container" id="authContainer">
+        <!-- Login Page -->
+        <div class="auth-card" id="loginCard">
+            <div class="auth-header">
+                <h2>Welcome Back</h2>
+                <p>Sign in to your account</p>
+            </div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="loginEmail" required placeholder="you@example.com">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="loginPassword" required placeholder="••••••••">
+                </div>
+                <div class="error-msg" id="loginError"></div>
+                <button type="submit" class="btn-primary">Sign In</button>
+            </form>
+            <div class="auth-footer">
+                <p>Don't have an account? <a href="#" onclick="showRegister()">Create one</a></p>
+                <p class="admin-hint">Admin: admin@library.com / admin123</p>
+            </div>
+        </div>
+
+        <!-- Register Page -->
+        <div class="auth-card hidden" id="registerCard">
+            <div class="auth-header">
+                <h2>Create Account</h2>
+                <p>Join the library</p>
+            </div>
+            <form id="registerForm">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" id="regName" required placeholder="Your full name">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="regEmail" required placeholder="you@example.com">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="regPassword" required placeholder="Min 6 characters">
+                </div>
+                <div class="form-group">
+                    <label>Phone (optional)</label>
+                    <input type="text" id="regPhone" placeholder="Your phone number">
+                </div>
+                <div class="error-msg" id="registerError"></div>
+                <button type="submit" class="btn-primary">Create Account</button>
+            </form>
+            <div class="auth-footer">
+                <p>Already have an account? <a href="#" onclick="showLogin()">Sign in</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="dashboard-container hidden" id="dashboard">
+        <nav class="sidebar">
+            <div class="logo"><h2>Library</h2><span id="roleLabel" class="role-badge">—</span></div>
+            <div class="realtime-status">
+                <span class="status-dot" id="realtimeStatus"></span>
+                <span id="realtimeText">Connecting</span>
+            </div>
+            <ul class="nav-links">
+                <!-- Admin Only -->
+                <li class="active admin-only"><a href="#" onclick="showPage('overview', event)">Overview</a></li>
+                <li class="admin-only"><a href="#" onclick="showPage('books', event)">Books</a></li>
+                <li class="admin-only"><a href="#" onclick="showPage('members', event)">Members</a></li>
+                <li class="admin-only"><a href="#" onclick="showPage('transactions', event)">Transactions</a></li>
+                <li class="admin-only"><a href="#" onclick="showPage('borrow', event)">Borrow / Return</a></li>
+                <!-- Member Only -->
+                <li class="member-only"><a href="#" onclick="showPage('mybooks', event)">My Books</a></li>
+                <li class="member-only"><a href="#" onclick="showPage('myhistory', event)">My History</a></li>
+            </ul>
+            <div class="user-info">
+                <span id="userEmail">—</span>
+                <button class="logout-btn" onclick="logout()">Sign Out</button>
+            </div>
+        </nav>
+
+        <main class="content">
+            <!-- Overview Page (Admin) -->
+            <div class="page active admin-only" id="page-overview">
+                <header>
+                    <h1>Dashboard</h1>
+                    <div class="header-actions">
+                        <button class="btn-sm btn-secondary" onclick="refreshData()">↻ Refresh</button>
+                        <span class="last-updated">Updated <span id="lastUpdated">—</span></span>
+                    </div>
+                </header>
+                
+                <!-- Top KPIs Row -->
+                <section class="kpi-row">
+                    <div class="kpi-card highlight">
+                        <span class="kpi-value" id="availableCopies">—</span>
+                        <span class="kpi-label">Available Now</span>
+                        <div class="kpi-sub">Ready to borrow</div>
+                    </div>
+                    <div class="kpi-card">
+                        <span class="kpi-value" id="issuedCopies">—</span>
+                        <span class="kpi-label">Currently Issued</span>
+                        <div class="kpi-sub">Out on loan</div>
+                    </div>
+                    <div class="kpi-card warning" id="overdueCard">
+                        <span class="kpi-value" id="overdueCount">—</span>
+                        <span class="kpi-label">Overdue</span>
+                        <div class="kpi-sub">Need attention</div>
+                    </div>
+                    <div class="kpi-card">
+                        <span class="kpi-value" id="activeMembers">—</span>
+                        <span class="kpi-label">Active Members</span>
+                        <div class="kpi-sub">Registered users</div>
+                    </div>
+                </section>
+
+                <!-- Main Charts Area -->
+                <section class="dashboard-grid">
+                    <!-- Left: Availability Donut -->
+                    <div class="chart-card large">
+                        <h3>Book Availability</h3>
+                        <div class="chart-container">
+                            <canvas id="availabilityChart"></canvas>
+                        </div>
+                        <div class="chart-stats">
+                            <div><span id="totalBooks">—</span> Total Books</div>
+                            <div><span id="totalCopies">—</span> Total Copies</div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Recent Activity -->
+                    <div class="activity-card">
+                        <h3>Recent Transactions</h3>
+                        <div class="activity-list" id="recentTxnList">
+                            <p class="loading">Loading...</p>
+                        </div>
+                    </div>
+
+                    <!-- Bottom Left: Top Borrowed Books -->
+                    <div class="chart-card">
+                        <h3>Most Popular Books</h3>
+                        <div class="chart-container">
+                            <canvas id="popularBooksChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Bottom Right: Member Activity -->
+                    <div class="chart-card">
+                        <h3>Borrowing Trend (Last 7 Days)</h3>
+                        <div class="chart-container">
+                            <canvas id="trendChart"></canvas>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Books Page (Admin) -->
+            <div class="page admin-only" id="page-books">
+                <header>
+                    <h1>Books</h1>
+                    <button class="btn-primary btn-sm" onclick="openModal('addBook')">+ Add Book</button>
+                </header>
+                <div class="search-bar">
+                    <input type="text" id="bookSearch" placeholder="Search books..." onkeyup="filterBooks()">
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Title</th><th>Author</th><th>Subject</th><th>Language</th><th>Copies</th><th>Action</th></tr></thead>
+                        <tbody id="booksListBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Members Page (Admin) -->
+            <div class="page admin-only" id="page-members">
+                <header>
+                    <h1>Members</h1>
+                    <button class="btn-primary btn-sm" onclick="openModal('addMember')">+ Add Member</button>
+                </header>
+                <div class="search-bar">
+                    <input type="text" id="memberSearch" placeholder="Search members..." onkeyup="filterMembers()">
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Name</th><th>Email</th><th>Type</th><th>Phone</th><th>Borrowed</th><th>Action</th></tr></thead>
+                        <tbody id="membersListBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Transactions Page (Admin) -->
+            <div class="page admin-only" id="page-transactions">
+                <header>
+                    <h1>Transactions</h1>
+                    <div class="filter-group">
+                        <select id="txnFilter" onchange="filterTransactions()">
+                            <option value="all">All</option>
+                            <option value="active">Active</option>
+                            <option value="overdue">Overdue</option>
+                            <option value="returned">Returned</option>
+                        </select>
+                    </div>
+                </header>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Book</th><th>Member</th><th>Issue Date</th><th>Due Date</th><th>Return Date</th><th>Status</th><th>Action</th></tr></thead>
+                        <tbody id="transactionsListBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Borrow/Return Page (Admin) - Redesigned -->
+            <div class="page admin-only" id="page-borrow">
+                <header>
+                    <h1>Borrow / Return</h1>
+                    <div class="header-actions">
+                        <button class="btn-sm btn-secondary" onclick="loadBorrowPage()">↻ Refresh</button>
+                    </div>
+                </header>
+                
+                <div class="borrow-layout">
+                    <!-- Left Panel: Actions -->
+                    <div class="borrow-actions-panel">
+                        <!-- Issue Book Card -->
+                        <div class="action-card issue-card">
+                            <div class="action-header">
+                                <span class="action-icon">📖</span>
+                                <h3>Issue Book</h3>
+                            </div>
+                            <form id="borrowForm" onsubmit="issueBook(event)">
+                                <div class="form-group">
+                                    <label>Member</label>
+                                    <select id="borrowMember" required>
+                                        <option value="">Select member...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Available Book</label>
+                                    <select id="borrowBook" required>
+                                        <option value="">Select book...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Due Date</label>
+                                    <input type="text" id="dueDate" readonly placeholder="Auto-calculated (14 days)">
+                                </div>
+                                <button type="submit" class="btn-primary btn-full">
+                                    <span>📤</span> Issue Book
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- Return Book Card -->
+                        <div class="action-card return-card">
+                            <div class="action-header">
+                                <span class="action-icon">↩️</span>
+                                <h3>Return Book</h3>
+                            </div>
+                            <form id="returnForm" onsubmit="returnBook(event)">
+                                <div class="form-group">
+                                    <label>Active Loan</label>
+                                    <select id="returnTransaction" required>
+                                        <option value="">Select loan to return...</option>
+                                    </select>
+                                </div>
+                                <div id="returnDetails" class="return-details hidden">
+                                    <div class="detail-row">
+                                        <span>Book:</span>
+                                        <strong id="returnBookTitle">-</strong>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span>Member:</span>
+                                        <strong id="returnMemberName">-</strong>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span>Due:</span>
+                                        <strong id="returnDueDate">-</strong>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn-primary btn-full btn-return">
+                                    <span>📥</span> Process Return
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Right Panel: Active Loans -->
+                    <div class="loans-panel">
+                        <div class="panel-header">
+                            <h3>Active Loans</h3>
+                            <span class="loan-count" id="activeLoanCount">0</span>
+                        </div>
+                        <div class="loans-list" id="activeLoansContainer">
+                            <p class="loading">Loading active loans...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- My Books Page (Member) -->
+            <div class="page member-only" id="page-mybooks">
+                <header><h1>My Borrowed Books</h1></header>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Book</th><th>Issue Date</th><th>Due Date</th><th>Status</th></tr></thead>
+                        <tbody id="myBooksBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- My History Page (Member) -->
+            <div class="page member-only" id="page-myhistory">
+                <header><h1>Borrowing History</h1></header>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Book</th><th>Issue Date</th><th>Due Date</th><th>Return Date</th><th>Status</th></tr></thead>
+                        <tbody id="myHistoryBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add Book Modal -->
+    <div class="modal hidden" id="addBookModal">
+        <div class="modal-content">
+            <h2>Add New Book</h2>
+            <form id="addBookForm" onsubmit="addBook(event)">
+                <div class="form-group"><label>Title</label><input type="text" id="bookTitle" required></div>
+                <div class="form-group"><label>Author</label><input type="text" id="bookAuthor" required></div>
+                <div class="form-group"><label>ISBN</label><input type="text" id="bookIsbn"></div>
+                <div class="form-group"><label>Language</label><input type="text" id="bookLanguage" value="English"></div>
+                <div class="form-row">
+                    <button type="submit" class="btn-primary">Add Book</button>
+                    <button type="button" class="btn-secondary" onclick="closeModal('addBook')">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Member Modal -->
+    <div class="modal hidden" id="addMemberModal">
+        <div class="modal-content">
+            <h2>Add New Member</h2>
+            <form id="addMemberForm" onsubmit="addMember(event)">
+                <div class="form-group"><label>Full Name</label><input type="text" id="memberName" required></div>
+                <div class="form-group"><label>Email</label><input type="email" id="memberEmail" required></div>
+                <div class="form-group"><label>Phone</label><input type="text" id="memberPhone"></div>
+                <div class="form-group"><label>Type</label>
+                    <select id="memberType"><option>Student</option><option>Faculty</option><option>Staff</option></select>
+                </div>
+                <div class="form-row">
+                    <button type="submit" class="btn-primary">Add Member</button>
+                    <button type="button" class="btn-secondary" onclick="closeModal('addMember')">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+
+    <script src="/static/config.js?v=21"></script>
+    <script src="/static/auth.js?v=21"></script>
+    <script src="/static/app.js?v=21"></script>
+</body>
+</html>

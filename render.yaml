@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: library-management-api
+    runtime: python3
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: SUPABASE_URL
+        value: https://xfvvsbnhlybnbyatkvww.supabase.co
+      - key: SUPABASE_ANON_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhmdnZzYm5obHlibmJ5YXRrdnd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0MTgwMDUsImV4cCI6MjA4MTk5NDAwNX0.9WDptfONShtxAyPf3POIZJ89eIOqs_B8rlXds1BcsOc
+      - key: SUPABASE_SERVICE_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhmdnZzYm5obHlibmJ5YXRrdnd3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NjQxODAwNSwiZXhwIjoyMDgxOTk0MDA1fQ.example_service_key
+      - key: JWT_SECRET_KEY
+        value: my-local-jwt-secret-key-for-demo-purposes-only
+      - key: JWT_ALGORITHM
+        value: HS256
