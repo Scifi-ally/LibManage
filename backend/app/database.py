@@ -1,11 +1,14 @@
 import httpx
 from app.config import SUPABASE_URL, SUPABASE_ANON_KEY
 
+# Debug: Check if config is loaded
+print(f"DEBUG: database.py - SUPABASE_URL = {SUPABASE_URL}")
+print(f"DEBUG: database.py - SUPABASE_ANON_KEY = {'***' if SUPABASE_ANON_KEY else None}")
+
 class SupabaseClient:
     def __init__(self, url: str, key: str):
-        self.url = url
-        self.key = key
-    
+        if not url or not key:
+            raise ValueError("SUPABASE_URL and SUPABASE_ANON_KEY must be set")
     def table(self, name: str):
         return SupabaseTable(self.url, self.key, name)
 
